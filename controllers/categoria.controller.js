@@ -1,4 +1,5 @@
 import db from '../database/db.js';
+import { createErrorResponse } from '../utils/errorHandler.js';
 
 /**
  * Obtiene todas las categorías
@@ -15,7 +16,7 @@ export const getAllCategories = (req, res) => {
     
     db.query(query, (err, result) => {
         if (err) {
-            return res.status(500).json({ success: false, message: err.message });
+            return res.status(500).json(createErrorResponse(err, 'categoria', 'obtener_todas'));
         }
         return res.status(200).json({ success: true, data: result });
     });
@@ -29,7 +30,7 @@ export const getCategoryById = (req, res) => {
     const query = "SELECT * FROM categoria WHERE id_categoria = ?";
     db.query(query, [id], (err, result) => {
         if (err) {
-            return res.status(500).json({ success: false, message: err.message });
+            return res.status(500).json(createErrorResponse(err, 'categoria', 'obtener_por_id'));
         }
         if (result.length === 0) {
             return res.status(404).json({ success: false, message: "Categoría no encontrada" });
@@ -58,18 +59,21 @@ export const createCategory = (req, res) => {
     const checkQuery = "SELECT id_categoria FROM categoria WHERE nombre = ?";
     db.query(checkQuery, [nombre.trim()], (err, result) => {
         if (err) {
-            return res.status(500).json({ success: false, message: err.message });
+            return res.status(500).json(createErrorResponse(err, 'categoria', 'verificar_duplicado'));
         }
         
         if (result.length > 0) {
-            return res.status(409).json({ success: false, message: "Ya existe una categoría con ese nombre" });
+            return res.status(409).json({ 
+                success: false, 
+                message: `Ya existe una categoría con el nombre "${nombre.trim()}"` 
+            });
         }
         
         // Si no existe, crear la nueva categoría
         const insertQuery = "INSERT INTO categoria (nombre, icono, descripcion) VALUES (?, ?, ?)";
         db.query(insertQuery, [nombre.trim(), icono, descripcion || null], (err, result) => {
             if (err) {
-                return res.status(500).json({ success: false, message: err.message });
+                return res.status(500).json(createErrorResponse(err, 'categoria', 'crear'));
             }
             return res.status(201).json({ 
                 success: true, 
@@ -99,18 +103,21 @@ export const updateCategory = (req, res) => {
     const checkQuery = "SELECT id_categoria FROM categoria WHERE nombre = ? AND id_categoria != ?";
     db.query(checkQuery, [nombre.trim(), id], (err, result) => {
         if (err) {
-            return res.status(500).json({ success: false, message: err.message });
+            return res.status(500).json(createErrorResponse(err, 'categoria', 'verificar_duplicado_actualizacion'));
         }
         
         if (result.length > 0) {
-            return res.status(409).json({ success: false, message: "Ya existe otra categoría con ese nombre" });
+            return res.status(409).json({ 
+                success: false, 
+                message: `Ya existe otra categoría con el nombre "${nombre.trim()}"` 
+            });
         }
         
         // Actualizar la categoría
         const updateQuery = "UPDATE categoria SET nombre = ?, icono = ?, descripcion = ? WHERE id_categoria = ?";
         db.query(updateQuery, [nombre.trim(), icono, descripcion || null, id], (err, result) => {
             if (err) {
-                return res.status(500).json({ success: false, message: err.message });
+                return res.status(500).json(createErrorResponse(err, 'categoria', 'actualizar'));
             }
             if (result.affectedRows === 0) {
                 return res.status(404).json({ success: false, message: "Categoría no encontrada" });
@@ -135,7 +142,7 @@ export const deleteCategory = (req, res) => {
     
     db.query(checkArticlesQuery, [id], (err, result) => {
         if (err) {
-            return res.status(500).json({ success: false, message: err.message });
+            return res.status(500).json(createErrorResponse(err, 'categoria', 'verificar_articulos'));
         }
         
         const hasArticles = result[0].count > 0;
@@ -143,7 +150,7 @@ export const deleteCategory = (req, res) => {
         // Iniciar transacción para eliminar en cascada
         db.beginTransaction((err) => {
             if (err) {
-                return res.status(500).json({ success: false, message: err.message });
+                return res.status(500).json(createErrorResponse(err, 'categoria', 'eliminar_transaccion'));
             }
             
             // Si hay artículos, eliminarlos primero
@@ -153,7 +160,7 @@ export const deleteCategory = (req, res) => {
                 db.query(getArticlesQuery, [id], (err, articlesResult) => {
                     if (err) {
                         return db.rollback(() => {
-                            res.status(500).json({ success: false, message: err.message });
+                            res.status(500).json(createErrorResponse(err, 'categoria', 'obtener_articulos_eliminacion'));
                         });
                     }
                     
@@ -165,7 +172,7 @@ export const deleteCategory = (req, res) => {
                         db.query(deleteRelationsQuery, [id], (err) => {
                             if (err) {
                                 return db.rollback(() => {
-                                    res.status(500).json({ success: false, message: err.message });
+                                    res.status(500).json(createErrorResponse(err, 'categoria', 'commit_eliminacion'));
                                 });
                             }
                             
@@ -174,7 +181,7 @@ export const deleteCategory = (req, res) => {
                             db.query(deleteArticlesQuery, [articleIds], (err) => {
                                 if (err) {
                                     return db.rollback(() => {
-                                        res.status(500).json({ success: false, message: err.message });
+                                        res.status(500).json(createErrorResponse(err, 'categoria', 'eliminar_articulos_cascada'));
                                     });
                                 }
                                 
@@ -197,7 +204,7 @@ export const deleteCategory = (req, res) => {
                                     db.commit((err) => {
                                         if (err) {
                                             return db.rollback(() => {
-                                                res.status(500).json({ success: false, message: err.message });
+                                                res.status(500).json(createErrorResponse(err, 'categoria', 'commit_eliminacion_con_articulos'));
                                             });
                                         }
                                         
@@ -216,7 +223,7 @@ export const deleteCategory = (req, res) => {
                         db.query(deleteCategoryQuery, [id], (err, result) => {
                             if (err) {
                                 return db.rollback(() => {
-                                    res.status(500).json({ success: false, message: err.message });
+                                    res.status(500).json(createErrorResponse(err, 'categoria', 'eliminar_categoria'));
                                 });
                             }
                             
@@ -230,7 +237,7 @@ export const deleteCategory = (req, res) => {
                             db.commit((err) => {
                                 if (err) {
                                     return db.rollback(() => {
-                                        res.status(500).json({ success: false, message: err.message });
+                                        res.status(500).json(createErrorResponse(err, 'categoria', 'commit_eliminacion_sin_articulos'));
                                     });
                                 }
                                 
@@ -244,14 +251,14 @@ export const deleteCategory = (req, res) => {
                     }
                 });
             } else {
-                // No hay artículos, solo eliminar la categoría
-                const deleteCategoryQuery = "DELETE FROM categoria WHERE id_categoria = ?";
-                db.query(deleteCategoryQuery, [id], (err, result) => {
-                    if (err) {
-                        return db.rollback(() => {
-                            res.status(500).json({ success: false, message: err.message });
-                        });
-                    }
+                                        // No hay artículos, solo eliminar la categoría
+                        const deleteCategoryQuery = "DELETE FROM categoria WHERE id_categoria = ?";
+                        db.query(deleteCategoryQuery, [id], (err, result) => {
+                            if (err) {
+                                return db.rollback(() => {
+                                    res.status(500).json(createErrorResponse(err, 'categoria', 'eliminar_categoria_sin_articulos'));
+                                });
+                            }
                     
                     if (result.affectedRows === 0) {
                         return db.rollback(() => {
@@ -263,7 +270,7 @@ export const deleteCategory = (req, res) => {
                     db.commit((err) => {
                         if (err) {
                             return db.rollback(() => {
-                                res.status(500).json({ success: false, message: err.message });
+                                res.status(500).json(createErrorResponse(err, 'categoria', 'commit_eliminacion_final'));
                             });
                         }
                         
