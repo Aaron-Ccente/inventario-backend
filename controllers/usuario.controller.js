@@ -1,4 +1,5 @@
 import db from '../database/db.js'
+import { createErrorResponse } from '../utils/errorHandler.js';
 
 /**
  * Autentica un usuario
@@ -9,7 +10,7 @@ export const loginUser = (req, res) => {
     db.query(query, [email, password], (err, result) => {
         if (err) {
             console.log("Error al autenticar usuario:", err);
-            return res.status(500).json({ success: false, message: err.message });
+            return res.status(500).json(createErrorResponse(err, 'usuario', 'autenticar'));
         } else {
             if (result.length > 0) {
                 const user = result[0];
@@ -41,7 +42,7 @@ export const registerUser = (req, res) => {
     db.query(query, [name, email, password], (err, result) => {
         if (err) {
             console.log('Error al registrar usuario:', err);
-            return res.status(500).json({ success: false, message: err.message });
+            return res.status(500).json(createErrorResponse(err, 'usuario', 'registrar'));
         } else {
             return res.status(200).json({ success: true, message: 'Usuario registrado exitosamente' });
         }
