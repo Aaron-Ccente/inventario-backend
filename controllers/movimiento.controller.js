@@ -1,10 +1,10 @@
-import db from '../database/db.js';
-import { createErrorResponse } from '../utils/errorHandler.js';
+const db = require('../database/db.js');
+const { createErrorResponse } = require('../utils/errorHandler.js');
 
 /**
  * Crea un nuevo movimiento de artículo
  */
-export const createMovement = (req, res) => {
+const createMovement = (req, res) => {
     const { id_articulo, accion, doc, detalle, cantidad, costo_unidad } = req.body;
     
     // Validar campos requeridos
@@ -98,7 +98,7 @@ export const createMovement = (req, res) => {
             db.query(insertMovementQuery, movementValues, (err, movementResult) => {
                 if (err) {
                     return db.rollback(() => {
-                        res.status(500).json(createErrorResponse(err, 'movimiento', 'crear_movimiento'));
+                        res.status(500).json(createErrorResponse(err, 'movimiento', 'crear'));
                     });
                 }
 
@@ -115,22 +115,20 @@ export const createMovement = (req, res) => {
                     db.commit((err) => {
                         if (err) {
                             return db.rollback(() => {
-                                res.status(500).json(createErrorResponse(err, 'movimiento', 'commit_movimiento'));
+                                res.status(500).json(createErrorResponse(err, 'movimiento', 'commit'));
                             });
                         }
-                        
-                        const responseData = {
+
+                        return res.status(201).json({
                             success: true,
                             message: `Movimiento de ${accion.toLowerCase()} registrado exitosamente`,
                             data: {
-                                id_movimiento: movementResult.insertId,
+                                id: movementResult.insertId,
                                 stock_anterior: currentStock,
                                 stock_nuevo: newStock,
-                                diferencia: accion === 'ENTRADA' ? `+${cantidad}` : `-${cantidad}`
+                                diferencia: accion === 'ENTRADA' ? cantidad : -cantidad
                             }
-                        };
-                        
-                        return res.status(201).json(responseData);
+                        });
                     });
                 });
             });
@@ -139,87 +137,50 @@ export const createMovement = (req, res) => {
 };
 
 /**
- * Obtiene el historial de movimientos de un artículo
+ * Obtiene los movimientos de un artículo específico
  */
-export const getArticleMovements = (req, res) => {
-    const { id_articulo } = req.params;
+const getArticleMovements = (req, res) => {
+    const { id } = req.params;
     
-    // Verificar que el artículo existe
-    const checkArticleQuery = "SELECT id_articulo, nombre, codigo FROM articulo WHERE id_articulo = ?";
-    db.query(checkArticleQuery, [id_articulo], (err, articleResult) => {
+    const query = `
+        SELECT m.*, a.nombre as nombre_articulo, a.codigo
+        FROM movimiento m
+        INNER JOIN articulo a ON m.id_articulo = a.id_articulo
+        WHERE m.id_articulo = ?
+        ORDER BY m.fecha DESC
+    `;
+    
+    db.query(query, [id], (err, result) => {
         if (err) {
-            return res.status(500).json(createErrorResponse(err, 'movimiento', 'verificar_articulo_historial'));
+            return res.status(500).json(createErrorResponse(err, 'movimiento', 'obtener_por_articulo'));
         }
-
-        if (articleResult.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: "El artículo especificado no existe"
-            });
-        }
-
-        // Obtener movimientos del artículo
-        const getMovementsQuery = `
-            SELECT 
-                m.id_movimiento,
-                m.accion,
-                m.fecha,
-                m.doc,
-                m.detalle,
-                m.cantidad,
-                m.costo_unidad,
-                a.nombre as nombre_articulo,
-                a.codigo as codigo_articulo
-            FROM movimiento m
-            INNER JOIN articulo a ON m.id_articulo = a.id_articulo
-            WHERE m.id_articulo = ?
-            ORDER BY m.fecha DESC
-        `;
-
-        db.query(getMovementsQuery, [id_articulo], (err, movementsResult) => {
-            if (err) {
-                return res.status(500).json(createErrorResponse(err, 'movimiento', 'obtener_movimientos'));
-            }
-
-            return res.status(200).json({
-                success: true,
-                data: {
-                    articulo: {
-                        id: articleResult[0].id_articulo,
-                        nombre: articleResult[0].nombre,
-                        codigo: articleResult[0].codigo
-                    },
-                    movimientos: movementsResult
-                }
-            });
-        });
+        
+        return res.status(200).json({ success: true, data: result });
     });
 };
 
 /**
  * Obtiene todos los movimientos del sistema
  */
-export const getAllMovements = (req, res) => {
+const getAllMovements = (req, res) => {
     const query = `
-        SELECT 
-            m.id_movimiento,
-            m.accion,
-            m.fecha,
-            m.doc,
-            m.detalle,
-            m.cantidad,
-            m.costo_unidad,
-            a.nombre as nombre_articulo,
-            a.codigo as codigo_articulo
+        SELECT m.*, a.nombre as nombre_articulo, a.codigo
         FROM movimiento m
         INNER JOIN articulo a ON m.id_articulo = a.id_articulo
         ORDER BY m.fecha DESC
     `;
-
+    
     db.query(query, (err, result) => {
         if (err) {
-            return res.status(500).json(createErrorResponse(err, 'movimiento', 'obtener_todos_movimientos'));
+            return res.status(500).json(createErrorResponse(err, 'movimiento', 'obtener_todos'));
         }
+        
         return res.status(200).json({ success: true, data: result });
     });
+};
+
+module.exports = {
+    createMovement,
+    getArticleMovements,
+    getAllMovements
 };
