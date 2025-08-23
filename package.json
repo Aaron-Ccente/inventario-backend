@@ -1,21 +1,59 @@
 {
   "name": "backendinventario",
   "version": "1.0.0",
-  "main": "index.js",
-  "type": "module",
+  "main": "server-pkg.js",
+  "type": "commonjs",
+  "bin": "server-pkg.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon server.js"
+    "start": "node server-pkg.js",
+    "dev": "nodemon server.js",
+    "build": "pkg .",
+    "build-win": "pkg . --targets node18-win-x64",
+    "build-linux": "pkg . --targets node18-linux-x64",
+    "build-mac": "pkg . --targets node18-macos-x64",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "inventario",
+    "pnp",
+    "express",
+    "react",
+    "mysql"
+  ],
+  "author": "Aaron Ccente Rojas",
   "license": "ISC",
-  "description": "",
+  "description": "Sistema de Inventario PNP - Backend + Frontend empaquetado con pkg",
+  "pkg": {
+    "assets": [
+      "dist/**/*",
+      ".env",
+      "config/**/*",
+      "routes/**/*",
+      "controllers/**/*",
+      "database/**/*",
+      "utils/**/*"
+    ],
+    "targets": [
+      "node18-win-x64",
+      "node18-linux-x64",
+      "node18-macos-x64"
+    ],
+    "outputPath": "executables",
+    "scripts": [
+      "node_modules/mysql2/**/*.js"
+    ]
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
-    "express": "^5.1.0",
-    "mysql2": "^3.14.3",
-    "nodemon": "^3.1.10"
+    "express": "^4.18.2",
+    "mysql2": "^3.14.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10",
+    "pkg": "^5.8.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

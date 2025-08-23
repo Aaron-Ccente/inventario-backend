@@ -1,10 +1,10 @@
-import db from '../database/db.js';
-import { createErrorResponse } from '../utils/errorHandler.js';
+const db = require('../database/db.js');
+const { createErrorResponse } = require('../utils/errorHandler.js');
 
 /**
  * Obtiene todas las categorías
  */
-export const getAllCategories = (req, res) => {
+const getAllCategories = (req, res) => {
     const query = `
         SELECT c.*, 
                COALESCE(COUNT(ca.id_articulo), 0) as total_articulos
@@ -25,7 +25,7 @@ export const getAllCategories = (req, res) => {
 /**
  * Obtiene una categoría por ID
  */
-export const getCategoryById = (req, res) => {
+const getCategoryById = (req, res) => {
     const { id } = req.params;
     const query = "SELECT * FROM categoria WHERE id_categoria = ?";
     db.query(query, [id], (err, result) => {
@@ -42,7 +42,7 @@ export const getCategoryById = (req, res) => {
 /**
  * Crea una nueva categoría
  */
-export const createCategory = (req, res) => {
+const createCategory = (req, res) => {
     const { nombre, icono, descripcion } = req.body;
     
     // Validar que se proporcione un nombre
@@ -90,7 +90,7 @@ export const createCategory = (req, res) => {
 /**
  * Actualiza una categoría
  */
-export const updateCategory = (req, res) => {
+const updateCategory = (req, res) => {
     const { id } = req.params;
     const { nombre, icono, descripcion } = req.body;
     
@@ -103,7 +103,7 @@ export const updateCategory = (req, res) => {
     const checkQuery = "SELECT id_categoria FROM categoria WHERE nombre = ? AND id_categoria != ?";
     db.query(checkQuery, [nombre.trim(), id], (err, result) => {
         if (err) {
-            return res.status(500).json(createErrorResponse(err, 'categoria', 'verificar_duplicado_actualizacion'));
+            return res.status(500).json(createErrorResponse(err, 'categoria', 'verificar_duplicado'));
         }
         
         if (result.length > 0) {
@@ -113,19 +113,20 @@ export const updateCategory = (req, res) => {
             });
         }
         
-        // Actualizar la categoría
+        // Si no hay duplicados, actualizar la categoría
         const updateQuery = "UPDATE categoria SET nombre = ?, icono = ?, descripcion = ? WHERE id_categoria = ?";
         db.query(updateQuery, [nombre.trim(), icono, descripcion || null, id], (err, result) => {
             if (err) {
                 return res.status(500).json(createErrorResponse(err, 'categoria', 'actualizar'));
             }
+            
             if (result.affectedRows === 0) {
                 return res.status(404).json({ success: false, message: "Categoría no encontrada" });
             }
+            
             return res.status(200).json({ 
                 success: true, 
-                message: "Categoría actualizada exitosamente",
-                data: { nombre: nombre.trim(), icono, descripcion }
+                message: "Categoría actualizada exitosamente" 
             });
         });
     });
@@ -134,154 +135,48 @@ export const updateCategory = (req, res) => {
 /**
  * Elimina una categoría
  */
-export const deleteCategory = (req, res) => {
+const deleteCategory = (req, res) => {
     const { id } = req.params;
     
-    // Primero verificar si la categoría tiene artículos
-    const checkArticlesQuery = "SELECT COUNT(*) as count FROM categoria_articulo WHERE id_categoria = ?";
-    
+    // Verificar si la categoría tiene artículos asignados
+    const checkArticlesQuery = "SELECT COUNT(*) as total FROM categoria_articulo WHERE id_categoria = ?";
     db.query(checkArticlesQuery, [id], (err, result) => {
         if (err) {
             return res.status(500).json(createErrorResponse(err, 'categoria', 'verificar_articulos'));
         }
         
-        const hasArticles = result[0].count > 0;
+        const totalArticles = result[0].total;
         
-        // Iniciar transacción para eliminar en cascada
-        db.beginTransaction((err) => {
+        if (totalArticles > 0) {
+            return res.status(400).json({ 
+                success: false, 
+                message: `No se puede eliminar la categoría porque tiene ${totalArticles} artículo(s) asignado(s). Primero debes reasignar o eliminar estos artículos.` 
+            });
+        }
+        
+        // Si no tiene artículos, eliminar la categoría
+        const deleteQuery = "DELETE FROM categoria WHERE id_categoria = ?";
+        db.query(deleteQuery, [id], (err, result) => {
             if (err) {
-                return res.status(500).json(createErrorResponse(err, 'categoria', 'eliminar_transaccion'));
+                return res.status(500).json(createErrorResponse(err, 'categoria', 'eliminar'));
             }
             
-            // Si hay artículos, eliminarlos primero
-            if (hasArticles) {
-                // Obtener IDs de artículos relacionados
-                const getArticlesQuery = "SELECT id_articulo FROM categoria_articulo WHERE id_categoria = ?";
-                db.query(getArticlesQuery, [id], (err, articlesResult) => {
-                    if (err) {
-                        return db.rollback(() => {
-                            res.status(500).json(createErrorResponse(err, 'categoria', 'obtener_articulos_eliminacion'));
-                        });
-                    }
-                    
-                    if (articlesResult.length > 0) {
-                        const articleIds = articlesResult.map(article => article.id_articulo);
-                        
-                        // Eliminar relaciones primero
-                        const deleteRelationsQuery = "DELETE FROM categoria_articulo WHERE id_categoria = ?";
-                        db.query(deleteRelationsQuery, [id], (err) => {
-                            if (err) {
-                                return db.rollback(() => {
-                                    res.status(500).json(createErrorResponse(err, 'categoria', 'commit_eliminacion'));
-                                });
-                            }
-                            
-                            // Eliminar artículos
-                            const deleteArticlesQuery = "DELETE FROM articulo WHERE id_articulo IN (?)";
-                            db.query(deleteArticlesQuery, [articleIds], (err) => {
-                                if (err) {
-                                    return db.rollback(() => {
-                                        res.status(500).json(createErrorResponse(err, 'categoria', 'eliminar_articulos_cascada'));
-                                    });
-                                }
-                                
-                                // Finalmente eliminar la categoría
-                                const deleteCategoryQuery = "DELETE FROM categoria WHERE id_categoria = ?";
-                                db.query(deleteCategoryQuery, [id], (err, result) => {
-                                    if (err) {
-                                        return db.rollback(() => {
-                                            res.status(500).json({ success: false, message: err.message });
-                                        });
-                                    }
-                                    
-                                    if (result.affectedRows === 0) {
-                                        return db.rollback(() => {
-                                            res.status(404).json({ success: false, message: "Categoría no encontrada" });
-                                        });
-                                    }
-                                    
-                                    // Commit de la transacción
-                                    db.commit((err) => {
-                                        if (err) {
-                                            return db.rollback(() => {
-                                                res.status(500).json(createErrorResponse(err, 'categoria', 'commit_eliminacion_con_articulos'));
-                                            });
-                                        }
-                                        
-                                        return res.status(200).json({ 
-                                            success: true, 
-                                            message: `Categoría eliminada exitosamente junto con ${articlesResult.length} artículos relacionados`,
-                                            articlesDeleted: articlesResult.length
-                                        });
-                                    });
-                                });
-                            });
-                        });
-                    } else {
-                        // No hay artículos, solo eliminar la categoría
-                        const deleteCategoryQuery = "DELETE FROM categoria WHERE id_categoria = ?";
-                        db.query(deleteCategoryQuery, [id], (err, result) => {
-                            if (err) {
-                                return db.rollback(() => {
-                                    res.status(500).json(createErrorResponse(err, 'categoria', 'eliminar_categoria'));
-                                });
-                            }
-                            
-                            if (result.affectedRows === 0) {
-                                return db.rollback(() => {
-                                    res.status(404).json({ success: false, message: "Categoría no encontrada" });
-                                });
-                            }
-                            
-                            // Commit de la transacción
-                            db.commit((err) => {
-                                if (err) {
-                                    return db.rollback(() => {
-                                        res.status(500).json(createErrorResponse(err, 'categoria', 'commit_eliminacion_sin_articulos'));
-                                    });
-                                }
-                                
-                                return res.status(200).json({ 
-                                    success: true, 
-                                    message: "Categoría eliminada exitosamente",
-                                    articlesDeleted: 0
-                                });
-                            });
-                        });
-                    }
-                });
-            } else {
-                                        // No hay artículos, solo eliminar la categoría
-                        const deleteCategoryQuery = "DELETE FROM categoria WHERE id_categoria = ?";
-                        db.query(deleteCategoryQuery, [id], (err, result) => {
-                            if (err) {
-                                return db.rollback(() => {
-                                    res.status(500).json(createErrorResponse(err, 'categoria', 'eliminar_categoria_sin_articulos'));
-                                });
-                            }
-                    
-                    if (result.affectedRows === 0) {
-                        return db.rollback(() => {
-                            res.status(404).json({ success: false, message: "Categoría no encontrada" });
-                        });
-                    }
-                    
-                    // Commit de la transacción
-                    db.commit((err) => {
-                        if (err) {
-                            return db.rollback(() => {
-                                res.status(500).json(createErrorResponse(err, 'categoria', 'commit_eliminacion_final'));
-                            });
-                        }
-                        
-                        return res.status(200).json({ 
-                            success: true, 
-                            message: "Categoría eliminada exitosamente",
-                            articlesDeleted: 0
-                        });
-                    });
-                });
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ success: false, message: "Categoría no encontrada" });
             }
+            
+            return res.status(200).json({ 
+                success: true, 
+                message: "Categoría eliminada exitosamente" 
+            });
         });
     });
+};
+
+module.exports = {
+    getAllCategories,
+    getCategoryById,
+    createCategory,
+    updateCategory,
+    deleteCategory
 };

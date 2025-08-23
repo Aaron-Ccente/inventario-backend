@@ -1,3 +1,8 @@
 node_modules
 package-lock.json
 .env
+dist
+test-new-executable
+.pkgignore
+backendinventario.exe
+executables
