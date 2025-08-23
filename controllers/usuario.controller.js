@@ -1,10 +1,10 @@
-import db from '../database/db.js'
-import { createErrorResponse } from '../utils/errorHandler.js';
+const db = require('../database/db.js');
+const { createErrorResponse } = require('../utils/errorHandler.js');
 
 /**
  * Autentica un usuario
  */
-export const loginUser = (req, res) => {
+const loginUser = (req, res) => {
     const { email, password } = req.body;
     const query = `SELECT id_usuario, nombre, email FROM usuario WHERE email = ? AND password = ?`;
     db.query(query, [email, password], (err, result) => {
@@ -36,7 +36,7 @@ export const loginUser = (req, res) => {
 /**
  * Registra un nuevo usuario
  */
-export const registerUser = (req, res) => {
+const registerUser = (req, res) => {
     const { name, email, password } = req.body;
     const query = `INSERT INTO usuario (nombre, email, password) VALUES (?, ?, ?)`;
     db.query(query, [name, email, password], (err, result) => {
@@ -47,4 +47,9 @@ export const registerUser = (req, res) => {
             return res.status(200).json({ success: true, message: 'Usuario registrado exitosamente' });
         }
     });
+};
+
+module.exports = {
+    loginUser,
+    registerUser
 };
