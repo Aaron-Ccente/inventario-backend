@@ -11,6 +11,7 @@ import articleRoutes from './routes/articulo.routes.js';
 import categoryRoutes from './routes/categoria.routes.js';
 import movementRoutes from './routes/movimiento.routes.js';
 import categoryArticleRoutes from './routes/categoria_articulo.routes.js';
+import reporteRoutes from './routes/reporte.routes.js';
 const app = express();
 
 // Middleware
@@ -34,6 +35,7 @@ app.use('/api/article', articleRoutes);
 app.use('/api/category', categoryRoutes);
 app.use('/api/movement', movementRoutes);   
 app.use('/api/category-article', categoryArticleRoutes);
+app.use('/api/reporte', reporteRoutes);
 
 const frontendPath = path.join(process.cwd(), 'dist');
 

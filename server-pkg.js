@@ -13,6 +13,7 @@ const articleRoutes = require('./routes/articulo.routes.js');
 const categoryRoutes = require('./routes/categoria.routes.js');
 const movementRoutes = require('./routes/movimiento.routes.js');
 const categoryArticleRoutes = require('./routes/categoria_articulo.routes.js');
+const reporteRoutes = require('./routes/reporte.routes.js');
 const app = express();
 
 app.use(cors());                   
@@ -34,6 +35,7 @@ app.use('/api/article', articleRoutes);
 app.use('/api/category', categoryRoutes);   
 app.use('/api/movement', movementRoutes); 
 app.use('/api/category-article', categoryArticleRoutes);
+app.use('/api/reporte', reporteRoutes);
 const frontendPath = path.join(process.cwd(), 'dist');
 
 app.use(express.static(frontendPath, {
