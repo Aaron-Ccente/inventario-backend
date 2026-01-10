@@ -1,11 +1,11 @@
 {
   "name": "backendinventario",
   "version": "1.0.0",
-  "main": "server-pkg.js",
+  "main": "server.js",
   "type": "commonjs",
-  "bin": "server-pkg.js",
+  "bin": "server.js",
   "scripts": {
-    "start": "node server-pkg.js",
+    "start": "node server.js",
     "dev": "nodemon server.js",
     "build": "pkg .",
     "build-win": "pkg . --targets node18-win-x64",

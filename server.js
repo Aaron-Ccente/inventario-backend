@@ -1,25 +1,25 @@
-import express from 'express';
-import cors from 'cors';
-import path from 'path';
-import dotenv from 'dotenv';
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const dotenv = require('dotenv');
+const { exec } = require('child_process');
+
 dotenv.config({ path: path.join(process.cwd(), '.env') });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8081;
 
-import userRoutes from './routes/usuario.routes.js';
-import articleRoutes from './routes/articulo.routes.js';
-import categoryRoutes from './routes/categoria.routes.js';
-import movementRoutes from './routes/movimiento.routes.js';
-import categoryArticleRoutes from './routes/categoria_articulo.routes.js';
-import reporteRoutes from './routes/reporte.routes.js';
+const userRoutes = require('./routes/usuario.routes.js');
+const articleRoutes = require('./routes/articulo.routes.js');
+const categoryRoutes = require('./routes/categoria.routes.js');
+const movementRoutes = require('./routes/movimiento.routes.js');
+const categoryArticleRoutes = require('./routes/categoria_articulo.routes.js');
+const reporteRoutes = require('./routes/reporte.routes.js');
 const app = express();
 
-// Middleware
-app.use(cors());   
-app.use(express.json()); 
-app.use(express.urlencoded({ extended: true }));
+app.use(cors());                   
+app.use(express.json());         
+app.use(express.urlencoded({ extended: true })); 
 
-// Ruta de prueba de conexión
 app.get('/api', (_, res) => {
     res.status(200).json({ 
         success: true, 
@@ -29,28 +29,27 @@ app.get('/api', (_, res) => {
     });
 });
 
-// Rutas
-app.use('/api/user', userRoutes);         
-app.use('/api/article', articleRoutes);     
-app.use('/api/category', categoryRoutes);
-app.use('/api/movement', movementRoutes);   
+//Rutas
+app.use('/api/user', userRoutes);          
+app.use('/api/article', articleRoutes);    
+app.use('/api/category', categoryRoutes);   
+app.use('/api/movement', movementRoutes); 
 app.use('/api/category-article', categoryArticleRoutes);
 app.use('/api/reporte', reporteRoutes);
-
 const frontendPath = path.join(process.cwd(), 'dist');
 
 app.use(express.static(frontendPath, {
     index: false,
-    setHeaders: (res, path) => {
-        if (path.endsWith('.js') || path.endsWith('.css')) {
-            res.setHeader('Cache-Control', 'public, max-age=31536000'); // 1 año
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000');
         }
     }
 }));
 
-// Esta ruta captura todas las rutas que no sean API y remite index.html
 app.get('*', (req, res) => {
     const indexPath = path.join(frontendPath, 'index.html');
+
     if (!req.path.startsWith('/api')) {
         res.sendFile(indexPath, (err) => {
             if (err) {
@@ -69,8 +68,7 @@ app.get('*', (req, res) => {
     }
 });
 
-// INICIALIZACIÓN DEL SERVIDOR
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
     console.log('='.repeat(60));
     console.log('SERVIDOR INVENTARIO PNP INICIADO');
     console.log('='.repeat(60));
@@ -84,6 +82,4 @@ app.listen(PORT, () => {
     } else {
         console.log('Ejecutando en modo desarrollo');
     }
-    
-    console.log('Rutas de API disponibles:');
 });

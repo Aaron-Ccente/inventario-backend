@@ -171,65 +171,61 @@ const updateStock = (req, res) => {
 /**
  * Elimina un artículo
  */
-const deleteArticle = (req, res) => {
-    const { id } = req.params;
-    
-    // Iniciar transacción para eliminación en cascada
-    db.beginTransaction((err) => {
-        if (err) {
-            return res.status(500).json(createErrorResponse(err, 'articulo', 'iniciar_transaccion'));
-        }
-        
-        // Primero eliminar todos los movimientos relacionados
-        const deleteMovementsQuery = "DELETE FROM movimiento WHERE id_articulo = ?";
-        db.query(deleteMovementsQuery, [id], (err, movementsResult) => {
-            if (err) {
-                return db.rollback(() => {
-                    res.status(500).json(createErrorResponse(err, 'articulo', 'eliminar_movimientos'));
-                });
-            }
-            
-            // Luego eliminar las relaciones con categorías
-            const deleteCategoryQuery = "DELETE FROM categoria_articulo WHERE id_articulo = ?";
-            db.query(deleteCategoryQuery, [id], (err, categoryResult) => {
-                if (err) {
-                    return db.rollback(() => {
-                        res.status(500).json(createErrorResponse(err, 'articulo', 'eliminar_relaciones'));
-                    });
-                }
-                
-                // Finalmente eliminar el artículo
-                const deleteArticleQuery = "DELETE FROM articulo WHERE id_articulo = ?";
-                db.query(deleteArticleQuery, [id], (err, articleResult) => {
-                    if (err) {
-                        return db.rollback(() => {
-                            res.status(500).json(createErrorResponse(err, 'articulo', 'eliminar'));
-                        });
-                    }
-                    
-                    if (articleResult.affectedRows === 0) {
-                        return db.rollback(() => {
-                            res.status(404).json({ success: false, message: "Artículo no encontrado" });
-                        });
-                    }
-                    
-                    // Commit de la transacción
-                    db.commit((err) => {
-                        if (err) {
-                            return db.rollback(() => {
-                                res.status(500).json(createErrorResponse(err, 'articulo', 'commit'));
-                            });
-                        }
-                        
-                        return res.status(200).json({ 
-                            success: true, 
-                            message: "Artículo y todos sus registros relacionados eliminados exitosamente" 
-                        });
-                    });
-                });
-            });
-        });
+const deleteArticle = async (req, res) => {
+  const { id } = req.params;
+
+  let connection;
+
+  try {
+    // 1️ Obtener conexión del pool
+    connection = await db.promise().getConnection();
+
+    // 2️ Iniciar transacción
+    await connection.beginTransaction();
+
+    // 3️ Eliminar movimientos relacionados
+    await connection.query(
+      "DELETE FROM movimiento WHERE id_articulo = ?",
+      [id]
+    );
+
+    // 4️ Eliminar relaciones con categorías
+    await connection.query(
+      "DELETE FROM categoria_articulo WHERE id_articulo = ?",
+      [id]
+    );
+
+    // 5️ Eliminar artículo
+    const [articleResult] = await connection.query(
+      "DELETE FROM articulo WHERE id_articulo = ?",
+      [id]
+    );
+
+    if (articleResult.affectedRows === 0) {
+      await connection.rollback();
+      return res.status(404).json({
+        success: false,
+        message: "Artículo no encontrado"
+      });
+    }
+
+    // 6️. Commit
+    await connection.commit();
+
+    return res.status(200).json({
+      success: true,
+      message: "Artículo y todos sus registros relacionados eliminados exitosamente"
     });
+
+  } catch (err) {
+    if (connection) await connection.rollback();
+
+    return res.status(500).json(
+      createErrorResponse(err, 'articulo', 'eliminar_transaccion')
+    );
+  } finally {
+    if (connection) connection.release(); // 🔑 SIEMPRE liberar
+  }
 };
 
 /**
